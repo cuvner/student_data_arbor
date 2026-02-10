@@ -7,10 +7,12 @@ let pointThreshold = 0;
 function setup() {
   pixelDensity(1);
   
-  // PERFORMANCE BOOST #1: Disable the Alpha channel for the entire canvas
-  // This tells the Pi it doesn't need to calculate transparency between the browser and the desktop
-  let canvas = createCanvas(windowWidth, windowHeight);
-  canvas.getContext('2d', { alpha: false }); 
+  // Create the canvas
+  let cnv = createCanvas(windowWidth, windowHeight);
+  
+  // PERFORMANCE BOOST: Access the raw canvas element to disable alpha
+  // This is the correct way to do it in p5.js
+  let ctx = cnv.elt.getContext('2d', { alpha: false });
   
   frameRate(30); 
   textAlign(CENTER, CENTER);
