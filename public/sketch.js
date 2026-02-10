@@ -8,7 +8,6 @@ function setup() {
   pixelDensity(1);
   let cnv = createCanvas(windowWidth, windowHeight);
   
-  // Safe access to disable Alpha for performance
   if (cnv.elt && cnv.elt.getContext) {
     cnv.elt.getContext('2d', { alpha: false });
   }
@@ -34,19 +33,16 @@ function updateStudentList(data) {
   let now = new Date();
   lastUpdated = now.getHours() + ":" + nf(now.getMinutes(), 2);
 
-  // Filter to Top 200 nodes only
   arborData.sort((a, b) => (Number(b.Points) || 0) - (Number(a.Points) || 0));
   if (arborData.length > 200) arborData = arborData.slice(0, 200);
 
   let pointsArray = arborData.map(d => Number(d.Points) || 0);
   maxPointsInSchool = Math.max(...pointsArray);
 
-  // Set threshold for top 25%
   let sortedPoints = [...pointsArray].sort((a, b) => a - b);
   let index = Math.floor(sortedPoints.length * 0.75);
   pointThreshold = sortedPoints[index];
 
-  // Reconcile list
   let currentIds = arborData.map(d => d["Arbor Student ID"]);
   students = students.filter(s => currentIds.includes(s.arborId));
 
@@ -125,10 +121,18 @@ class Student {
     if (this.points >= pointThreshold && this.points > 0) {
       fill(255);
       textSize(this.cachedTxtSize);
-      // Centering offset: +5px right
       text(this.initials, this.pos.x + 5, this.pos.y);
     }
   }
+}
+
+function drawStatusUI() {
+  push();
+  fill(255, 100);
+  textSize(14);
+  textAlign(RIGHT, BOTTOM);
+  text(`Last Updated: ${lastUpdated}`, width - 20, height - 15);
+  pop();
 }
 
 function windowResized() {
