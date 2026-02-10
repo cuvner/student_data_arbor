@@ -6,13 +6,12 @@ let pointThreshold = 0;
 
 function setup() {
   pixelDensity(1);
-  
-  // Create the canvas
   let cnv = createCanvas(windowWidth, windowHeight);
   
-  // PERFORMANCE BOOST: Access the raw canvas element to disable alpha
-  // This is the correct way to do it in p5.js
-  let ctx = cnv.elt.getContext('2d', { alpha: false });
+  // Safe access to disable Alpha for performance
+  if (cnv.elt && cnv.elt.getContext) {
+    cnv.elt.getContext('2d', { alpha: false });
+  }
   
   frameRate(30); 
   textAlign(CENTER, CENTER);
@@ -35,24 +34,19 @@ function updateStudentList(data) {
   let now = new Date();
   lastUpdated = now.getHours() + ":" + nf(now.getMinutes(), 2);
 
-  // 1. PERFORMANCE BOOST: Sort and Slice to Max 200
-  // We sort by points (descending) so we only keep the top performers
+  // Filter to Top 200 nodes only
   arborData.sort((a, b) => (Number(b.Points) || 0) - (Number(a.Points) || 0));
-  
-  if (arborData.length > 200) {
-    arborData = arborData.slice(0, 200);
-  }
+  if (arborData.length > 200) arborData = arborData.slice(0, 200);
 
-  // 2. Calculate Stats based on this filtered list
   let pointsArray = arborData.map(d => Number(d.Points) || 0);
   maxPointsInSchool = Math.max(...pointsArray);
 
-  // Use the 75th percentile of the top 200 for text labels
-  pointsArray.sort((a, b) => a - b);
-  let index = Math.floor(pointsArray.length * 0.75);
-  pointThreshold = pointsArray[index];
+  // Set threshold for top 25%
+  let sortedPoints = [...pointsArray].sort((a, b) => a - b);
+  let index = Math.floor(sortedPoints.length * 0.75);
+  pointThreshold = sortedPoints[index];
 
-  // 3. Reconcile Students (Remove those no longer in the Top 200)
+  // Reconcile list
   let currentIds = arborData.map(d => d["Arbor Student ID"]);
   students = students.filter(s => currentIds.includes(s.arborId));
 
@@ -91,7 +85,6 @@ class Student {
       ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
       : (nameParts[0] ? nameParts[0][0] : "?").toUpperCase();
 
-    // PERFORMANCE BOOST #2: Cache the color to avoid color object creation every frame
     this.color = color(random(50, 200), random(100, 255), 255);
     this.updateStats(data);
     this.radius = this.targetRadius;
@@ -100,8 +93,6 @@ class Student {
   updateStats(data) {
     this.points = Number(data["Points"]) || 0;
     this.targetRadius = map(this.points, 0, maxPointsInSchool || 1, 5, 50, true);
-    
-    // PERFORMANCE BOOST #3: Pre-calculate text size only when data updates
     this.cachedTxtSize = constrain(this.targetRadius * 0.75, 10, 40);
   }
 
@@ -109,7 +100,6 @@ class Student {
     this.pos.add(this.vel);
     if (abs(this.radius - this.targetRadius) > 0.1) {
       this.radius = lerp(this.radius, this.targetRadius, 0.05);
-      // Re-update text size as radius lerps
       this.cachedTxtSize = constrain(this.radius * 0.75, 10, 40);
     }
   }
@@ -122,10 +112,8 @@ class Student {
   }
 
   display() {
-    // We stay in the global coordinate system as much as possible to avoid push/pop overhead
     noStroke();
     
-    // Highlight top scorer - drawn behind
     if (this.points > 0 && this.points === maxPointsInSchool) {
       fill(255, 255, 150); 
       circle(this.pos.x, this.pos.y, this.radius * 2 + 6); 
@@ -134,20 +122,13 @@ class Student {
     fill(this.color);
     circle(this.pos.x, this.pos.y, this.radius * 2);
 
-    // Only draw text for the elite 25%
     if (this.points >= pointThreshold && this.points > 0) {
       fill(255);
       textSize(this.cachedTxtSize);
-      text(this.initials, this.pos.x, this.pos.y);
+      // Centering offset: +5px right
+      text(this.initials, this.pos.x + 5, this.pos.y);
     }
   }
-}
-
-function drawStatusUI() {
-  fill(255, 100);
-  textSize(12);
-  textAlign(LEFT, BOTTOM);
-  text(`SYNC: ${lastUpdated} | TOP 25% DISPLAYED (> ${pointThreshold} pts)`, 15, height - 15);
 }
 
 function windowResized() {
