@@ -35,12 +35,26 @@ function updateStudentList(data) {
   let now = new Date();
   lastUpdated = now.getHours() + ":" + nf(now.getMinutes(), 2);
 
+  // 1. PERFORMANCE BOOST: Sort and Slice to Max 200
+  // We sort by points (descending) so we only keep the top performers
+  arborData.sort((a, b) => (Number(b.Points) || 0) - (Number(a.Points) || 0));
+  
+  if (arborData.length > 200) {
+    arborData = arborData.slice(0, 200);
+  }
+
+  // 2. Calculate Stats based on this filtered list
   let pointsArray = arborData.map(d => Number(d.Points) || 0);
   maxPointsInSchool = Math.max(...pointsArray);
 
+  // Use the 75th percentile of the top 200 for text labels
   pointsArray.sort((a, b) => a - b);
   let index = Math.floor(pointsArray.length * 0.75);
   pointThreshold = pointsArray[index];
+
+  // 3. Reconcile Students (Remove those no longer in the Top 200)
+  let currentIds = arborData.map(d => d["Arbor Student ID"]);
+  students = students.filter(s => currentIds.includes(s.arborId));
 
   arborData.forEach(newEntry => {
     let id = newEntry["Arbor Student ID"];
