@@ -1,63 +1,96 @@
 let students = [];
-let arborData = [];
+let updateInterval = 1000 * 60 * 10; // Check server every 10 mins
+let lastUpdated = "Initializing...";
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  textAlign(CENTER, CENTER);
   
-  // Using a relative path works regardless of the IP address
-  loadJSON('/data', (data) => {
-    arborData = Array.isArray(data) ? data : data.data || [];
-    for (let i = 0; i < arborData.length; i++) {
-      students.push(new Student(arborData[i]));
-    }
+  // 1. Initial Fetch
+  fetchData();
+  
+  // 2. Setup the "Heartbeat" to check for new data
+  setInterval(fetchData, updateInterval);
+}
+
+function fetchData() {
+  console.log("Checking for fresh Arbor data...");
+  loadJSON('/data', updateStudentList, (err) => {
+    console.error("Fetch failed, will retry in 10 mins", err);
   });
 }
 
+function updateStudentList(data) {
+  let arborData = Array.isArray(data) ? data : data.data || [];
+  
+  // Update timestamp
+  let now = new Date();
+  lastUpdated = now.getHours() + ":" + nf(now.getMinutes(), 2);
+
+  // Reconcile data: Update existing or add new
+  arborData.forEach(newEntry => {
+    let name = newEntry["Student"] || "Unknown";
+    let existing = students.find(s => s.fullName === name);
+
+    if (existing) {
+      // Update points and radius for existing student
+      existing.updateStats(newEntry);
+    } else {
+      // Add brand new student
+      students.push(new Student(newEntry));
+    }
+  });
+
+  // Optional: Remove students who are no longer in the Arbor list
+  // students = students.filter(s => arborData.some(d => d["Student"] === s.fullName));
+}
+
 function draw() {
-  background(15, 15, 25); // Deep midnight blue
+  background(15, 15, 25); 
 
   for (let s of students) {
     s.update();
     s.display();
     s.checkEdges();
   }
+
+  drawStatusUI();
 }
 
 class Student {
   constructor(data) {
-    this.pos = createVector(
-      random(100, width - 100),
-      random(100, height - 100),
-    );
+    this.pos = createVector(random(100, width - 100), random(100, height - 100));
     this.vel = p5.Vector.random2D().mult(random(0.5, 2));
-
-    // Using your specific keys: "Student" and "Points"
     this.fullName = data["Student"] || "Unknown";
-    this.points = Number(data["Points"]) || 0;
-
-    // Generate initials (handles "First Last" or "First Middle Last")
+    
+    // Set Initials once
     let nameParts = this.fullName.trim().split(/\s+/);
-    if (nameParts.length >= 2) {
-      this.initials = nameParts[0][0] + nameParts[nameParts.length - 1][0];
-    } else {
-      this.initials = nameParts[0] ? nameParts[0][0] : "?";
-    }
+    this.initials = nameParts.length >= 2 
+      ? nameParts[0][0] + nameParts[nameParts.length - 1][0] 
+      : (nameParts[0] ? nameParts[0][0] : "?");
 
-    // Map Points to Size (min 20px radius, max 75px)
-    // Adjust 0, 50 to your school's typical point range
-    this.radius = map(this.points, 0, 50, 20, 75, true);
-
+    this.updateStats(data);
+    
     // Visual Style
     this.color = color(random(100, 255), 100, random(200, 255), 200);
-    this.strokeColor = color(255, 200);
+  }
+
+  // New method to handle updates without resetting position
+  updateStats(data) {
+    this.points = Number(data["Points"]) || 0;
+    // Map Points to Size (min 20px radius, max 75px)
+    this.targetRadius = map(this.points, 0, 50, 20, 75, true);
+    // Smoothly grow/shrink (if it's the first time, set radius immediately)
+    if (!this.radius) this.radius = this.targetRadius;
   }
 
   update() {
     this.pos.add(this.vel);
+    // Smoothly transition radius to targetRadius
+    this.radius = lerp(this.radius, this.targetRadius, 0.05);
   }
 
   checkEdges() {
-    // Bounce off walls
     if (this.pos.x < this.radius || this.pos.x > width - this.radius) {
       this.vel.x *= -1;
       this.pos.x = constrain(this.pos.x, this.radius, width - this.radius);
@@ -71,20 +104,10 @@ class Student {
   display() {
     push();
     translate(this.pos.x, this.pos.y);
-
-    // OPTION A: High Performance (No Shadow)
     fill(this.color);
-    stroke(255, 150); // Use a light stroke instead of a glow
+    stroke(255, 150);
+    strokeWeight(2);
     circle(0, 0, this.radius * 2);
-
-    // OPTION B: Medium Performance (Two circles instead of shadowBlur)
-    /*
-  noStroke();
-  fill(this.color, 50); // Faint outer circle for glow
-  circle(0, 0, this.radius * 2.4);
-  fill(this.color); // Solid inner circle
-  circle(0, 0, this.radius * 2);
-  */
 
     fill(255);
     noStroke();
@@ -92,6 +115,15 @@ class Student {
     text(this.initials.toUpperCase(), 0, 0);
     pop();
   }
+}
+
+function drawStatusUI() {
+  push();
+  fill(255, 100);
+  textAlign(LEFT, BOTTOM);
+  textSize(14);
+  text(`Arbor Live | Last Sync: ${lastUpdated} | IP: 100.126.185.85`, 20, height - 20);
+  pop();
 }
 
 function windowResized() {
