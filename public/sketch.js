@@ -3,19 +3,14 @@ let arborData = [];
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-
-  // Fetch from your local Node server
-  loadJSON("http://localhost:3000/data", (data) => {
-    // Some Arbor exports wrap data in an object;
-    // this handles both raw arrays and nested objects.
+  
+  // Using a relative path works regardless of the IP address
+  loadJSON('/data', (data) => {
     arborData = Array.isArray(data) ? data : data.data || [];
-
     for (let i = 0; i < arborData.length; i++) {
       students.push(new Student(arborData[i]));
     }
   });
-
-  textAlign(CENTER, CENTER);
 }
 
 function draw() {
