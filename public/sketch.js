@@ -11,7 +11,7 @@ let focus = {
   duration: 2 * 60 * 1000, // 2 Minutes
   targetStudent: null,
   message: "",
-  boxPos: null // For smooth following
+  boxPos: null 
 };
 
 const achievementPhrases = [
@@ -48,17 +48,14 @@ function updateStudentList(data) {
   let now = new Date();
   lastUpdated = now.getHours() + ":" + nf(now.getMinutes(), 2);
 
-  // Sort by points descending
   let arborData = data.sort((a, b) => (b.Points || 0) - (a.Points || 0));
   
-  // Update internal logic variables
   let pointsArray = arborData.map(d => d.Points || 0);
   maxPointsInSchool = Math.max(...pointsArray);
   let sortedPoints = [...pointsArray].sort((a, b) => a - b);
   let index = Math.floor(sortedPoints.length * 0.75);
   pointThreshold = sortedPoints[index];
 
-  // Limit particles to top 150 for performance
   let particleData = arborData.slice(0, 150);
   let currentIds = particleData.map(d => d["Arbor Student ID"]);
   students = students.filter(s => currentIds.includes(s.arborId));
@@ -73,7 +70,6 @@ function updateStudentList(data) {
     }
   });
 
-  // If no one is being followed, pick someone immediately
   if (!focus.targetStudent && students.length > 0) {
     pickNewFocus();
   }
@@ -82,19 +78,16 @@ function updateStudentList(data) {
 function draw() {
   background(15, 15, 25);
 
-  // 1. Draw Students
   for (let s of students) {
     s.update();
     s.display();
     s.checkEdges();
   }
 
-  // 2. Logic for Changing Focused Student (Every 2 mins)
   if (millis() - focus.startTime > focus.duration || !focus.targetStudent) {
     pickNewFocus();
   }
 
-  // 3. Draw UI Layers
   drawLeaderboard();
   if (focus.targetStudent) {
     drawFloatingDataBox();
@@ -113,44 +106,38 @@ function pickNewFocus() {
 
 function drawLeaderboard() {
   push();
-  let lbWidth = 220;
-  // Glassmorphism effect for sidebar
-  fill(20, 20, 40, 200);
+  let lbWidth = 280; // Slightly wider for better readability
+  fill(20, 20, 40, 220);
   noStroke();
   rect(0, 0, lbWidth, height);
   
-  // Header
   fill(255);
-  textSize(18);
+  textSize(22);
   textStyle(BOLD);
   textAlign(LEFT, TOP);
-  text("TOP ACHIEVERS", 20, 25);
+  text("TOP ACHIEVERS", 25, 30);
   
   stroke(255, 50);
-  line(20, 50, lbWidth - 20, 50);
+  line(20, 65, lbWidth - 20, 65);
   noStroke();
 
-  // Top 15 list
   let topList = [...students].sort((a, b) => b.points - a.points).slice(0, 15);
   
-  textSize(14);
+  textSize(18);
   textStyle(NORMAL);
   for (let i = 0; i < topList.length; i++) {
     let s = topList[i];
-    let yPos = 70 + (i * 35);
+    let yPos = 90 + (i * 45); // Increased spacing
     
-    // Rank number
     fill(255, 150);
     text(`${i + 1}.`, 20, yPos);
     
-    // Student Color Indicator
     fill(s.color);
-    circle(45, yPos + 7, 10);
+    circle(50, yPos + 10, 12);
     
-    // Name and Points
     fill(255);
     let nameText = s.fullName ? s.fullName.split(' ')[0] : s.initials;
-    text(nameText, 60, yPos);
+    text(nameText, 70, yPos);
     
     textAlign(RIGHT);
     fill(255, 200);
@@ -162,50 +149,57 @@ function drawLeaderboard() {
 
 function drawFloatingDataBox() {
   let s = focus.targetStudent;
-  let boxW = 260;
-  let boxH = 110;
   
-  // Lerp the box position for smooth following
+  // SCALED SIZES (approx 3x original)
+  let boxW = 750; 
+  let boxH = 320;
+  
+  // Smooth follow
   focus.boxPos.x = lerp(focus.boxPos.x, s.pos.x, 0.1);
   focus.boxPos.y = lerp(focus.boxPos.y, s.pos.y, 0.1);
 
-  // Position logic (prevent box going off screen)
-  let x = focus.boxPos.x + 40;
+  // Offset logic to prevent box going off screen
+  let x = focus.boxPos.x + 80;
   let y = focus.boxPos.y - boxH / 2;
-  if (x + boxW > width) x = focus.boxPos.x - boxW - 40;
-  y = constrain(y, 20, height - boxH - 20);
+  
+  if (x + boxW > width) x = focus.boxPos.x - boxW - 80;
+  y = constrain(y, 40, height - boxH - 40);
 
   push();
   translate(x, y);
 
-  // Connector line back to the actual particle
-  stroke(s.color);
-  strokeWeight(1);
-  line(x > s.pos.x ? 0 : boxW, boxH / 2, s.pos.x - x, s.pos.y - y);
-
-  // Box
-  fill(25, 25, 45, 245);
+  // Connection Line
   stroke(s.color);
   strokeWeight(3);
-  rect(0, 0, boxW, boxH, 8);
+  line(x > s.pos.x ? 0 : boxW, boxH / 2, s.pos.x - x, s.pos.y - y);
 
-  // Text
+  // Large Box
+  fill(25, 25, 45, 250);
+  stroke(s.color);
+  strokeWeight(6); // Thicker border for scale
+  rect(0, 0, boxW, boxH, 20);
+
+  // Text Logic
   noStroke();
   fill(255);
+  
+  // Name (Title Size)
   textStyle(BOLD);
-  textSize(16);
+  textSize(48); // 3x of 16
   let displayName = s.fullName || s.initials;
-  text(displayName, 15, 20);
+  text(displayName, 30, 40);
 
+  // Achievement (Body Size)
   textStyle(NORMAL);
-  textSize(12);
-  text(`${displayName} ${focus.message}`, 15, 42, boxW - 30, boxH - 50);
+  textSize(36); // 3x of 12
+  textLeading(45);
+  text(`${displayName} ${focus.message}`, 30, 110, boxW - 60, boxH - 120);
 
   // Timer Bar
   let elapsed = millis() - focus.startTime;
-  let progress = map(elapsed, 0, focus.duration, boxW - 20, 0);
+  let progress = map(elapsed, 0, focus.duration, boxW - 40, 0);
   fill(s.color);
-  rect(10, boxH - 10, progress, 3);
+  rect(20, boxH - 25, progress, 10, 5);
   pop();
 }
 
@@ -214,7 +208,7 @@ class Student {
     this.arborId = data["Arbor Student ID"];
     this.initials = data["Initials"] || "?";
     this.fullName = data["Student Full Name"] || data["Full Name"] || null;
-    this.pos = createVector(random(250, width - 50), random(50, height - 50));
+    this.pos = createVector(random(300, width - 50), random(50, height - 50));
     this.vel = p5.Vector.random2D().mult(random(0.5, 1.5));
     this.color = color(random(100, 255), random(150, 255), 255);
     this.updateStats(data);
@@ -224,7 +218,7 @@ class Student {
   updateStats(data) {
     this.points = data.Points || 0;
     this.fullName = data["Student Full Name"] || data["Full Name"] || this.fullName;
-    this.targetRadius = map(this.points, 0, maxPointsInSchool || 1, 8, 50, true);
+    this.targetRadius = map(this.points, 0, maxPointsInSchool || 1, 12, 60, true);
   }
 
   update() {
@@ -235,8 +229,7 @@ class Student {
   }
 
   checkEdges() {
-    // Offset left edge to account for Leaderboard
-    let leftBound = 230; 
+    let leftBound = 300; // Adjusted for leaderboard width
     if (this.pos.x < leftBound + this.radius || this.pos.x > width - this.radius) this.vel.x *= -1;
     if (this.pos.y < this.radius || this.pos.y > height - this.radius) this.vel.y *= -1;
     this.pos.x = constrain(this.pos.x, leftBound + this.radius, width - this.radius);
@@ -245,10 +238,9 @@ class Student {
 
   display() {
     noStroke();
-    // Halo for the one being focused on
     if (focus.targetStudent === this) {
       fill(this.color.levels[0], this.color.levels[1], this.color.levels[2], 50);
-      circle(this.pos.x, this.pos.y, this.radius * 2.5 + sin(frameCount * 0.1) * 10);
+      circle(this.pos.x, this.pos.y, this.radius * 2.8 + sin(frameCount * 0.1) * 15);
     }
 
     fill(this.color);
@@ -257,8 +249,9 @@ class Student {
     if (this.points >= pointThreshold && this.points > 0) {
       fill(255);
       textAlign(CENTER, CENTER);
-      textSize(constrain(this.radius * 0.7, 10, 25));
+      textSize(constrain(this.radius * 0.7, 12, 35));
       text(this.initials, this.pos.x, this.pos.y);
+      textAlign(LEFT, TOP);
     }
   }
 }
@@ -266,9 +259,9 @@ class Student {
 function drawStatusUI() {
   push();
   fill(255, 60);
-  textSize(10);
+  textSize(14);
   textAlign(RIGHT, BOTTOM);
-  text(`Updated: ${lastUpdated}`, width - 10, height - 10);
+  text(`Updated: ${lastUpdated}`, width - 20, height - 15);
   pop();
 }
 
