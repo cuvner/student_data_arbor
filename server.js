@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
-const os = require("os");
 const https = require("https");
 const fs = require("fs");
 
@@ -11,11 +10,22 @@ const app = express();
 const PORT = process.env.PORT || 3443;
 const API_URL = process.env.ARBOR_API_URL;
 const AUTH_STRING = process.env.ARBOR_AUTH_TOKEN;
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || "key.pem";
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || "cert.pem";
+
+function requireEnv(name, value) {
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+}
+
+requireEnv("ARBOR_API_URL", API_URL);
+requireEnv("ARBOR_AUTH_TOKEN", AUTH_STRING);
 
 // --- SSL SETUP ---
 const sslOptions = {
-  key: fs.readFileSync("key.pem"),
-  cert: fs.readFileSync("cert.pem"),
+  key: fs.readFileSync(SSL_KEY_PATH),
+  cert: fs.readFileSync(SSL_CERT_PATH),
 };
 
 // --- CACHE & STATE ---
@@ -50,11 +60,6 @@ function scrubStudentData(rawData) {
 
 // --- API FETCHING ---
 async function refreshArborData() {
-  if (!API_URL || !AUTH_STRING) {
-    console.error("❌ Error: API_URL or AUTH_TOKEN missing in .env");
-    return;
-  }
-
   try {
     const response = await fetch(API_URL, {
       headers: { "Authorization": AUTH_STRING, "Accept": "application/json" },
@@ -99,5 +104,6 @@ https.createServer(sslOptions, app).listen(PORT, '127.0.0.1', () => {
   console.log(`🏠 Internal Address: https://127.0.0.1:${PORT}`);
   console.log(`🚫 External Network: BLOCKED`);
   console.log(`✅ Data Status: Scrubbing full names to initials`);
+  console.log(`🔑 Secrets Source: .env`);
   console.log("-----------------------------------------");
 });
